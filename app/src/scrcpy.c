@@ -18,6 +18,7 @@
 #include "demuxer.h"
 #include "events.h"
 #include "file_pusher.h"
+#include "joystick.h"
 #include "keyboard_inject.h"
 #include "mouse_inject.h"
 #include "recorder.h"
@@ -47,6 +48,7 @@ struct scrcpy {
 #endif
     struct sc_controller controller;
     struct sc_file_pusher file_pusher;
+    struct sc_joystick_processor joystick_processor;
 #ifdef HAVE_USB
     struct sc_usb usb;
     struct sc_aoa aoa;
@@ -269,11 +271,37 @@ enum scrcpy_exit_code
 scrcpy(struct scrcpy_options *options) {
     static struct scrcpy scrcpy;
     struct scrcpy *s = &scrcpy;
-
+    SDL_Joystick *joy;
+    FILE *fjoylog;
     // Minimal SDL initialization
     if (SDL_Init(SDL_INIT_EVENTS)) {
         LOGE("Could not initialize SDL: %s", SDL_GetError());
         return SCRCPY_EXIT_FAILURE;
+    }
+    if (SDL_Init(SDL_INIT_JOYSTICK)) {
+        LOGE("Could not initialize SDL: %s", SDL_GetError());
+    } else {
+        fjoylog = fopen("joylog.txt", "r");
+        if (!fjoylog) {
+            fjoylog = fopen("joylog.txt", "w");
+        }
+        fclose(fjoylog);
+    }
+    if (SDL_NumJoysticks() > 0) {
+        LOGI("Joystick detected, try to open it.");
+        joy = SDL_JoystickOpen(0);
+        if (!joy) {
+            LOGE("Initialized SDL_JOY, dected joystick, fail to open it.");
+        } else {
+            LOGI("Joystick connected.");
+            if (SDL_ENABLE == SDL_JoystickEventState(SDL_ENABLE)) {
+                LOGI("Listening on joystick event.");
+            } else {
+                LOGE("Joystick event enabling failure.");
+            }
+        }
+    } else {
+        LOGI("No Joystick detected.");
     }
 
     atexit(SDL_Quit);
@@ -282,6 +310,7 @@ scrcpy(struct scrcpy_options *options) {
 
     bool server_started = false;
     bool file_pusher_initialized = false;
+    bool joystick_processor_initialized = false;
     bool recorder_initialized = false;
 #ifdef HAVE_V4L2
     bool v4l2_sink_initialized = false;
@@ -382,7 +411,16 @@ scrcpy(struct scrcpy_options *options) {
         fp = &s->file_pusher;
         file_pusher_initialized = true;
     }
+    struct sc_joystick_processor *jsp = NULL;
 
+    if (options->control && options->joystick_mapping) {
+        if (sc_joystick_processor_init(&s->joystick_processor)) {
+            jsp = &s->joystick_processor;
+            joystick_processor_initialized = true;
+        } else {
+            LOGE("Malloc failed, unable to create joystick processor.");
+        }
+    }
     struct sc_decoder *dec = NULL;
     bool needs_decoder = options->display;
 #ifdef HAVE_V4L2
@@ -582,6 +620,7 @@ aoa_hid_end:
         struct sc_screen_params screen_params = {
             .controller = controller,
             .fp = fp,
+            .jsp = jsp,
             .kp = kp,
             .mp = mp,
             .forward_all_clicks = options->forward_all_clicks,
@@ -714,6 +753,12 @@ end:
     if (file_pusher_initialized) {
         sc_file_pusher_join(&s->file_pusher);
         sc_file_pusher_destroy(&s->file_pusher);
+    }
+    if (joy) {
+        SDL_JoystickClose(joy);
+    }
+    if (joystick_processor_initialized) {
+        sc_joystick_processor_destroy(&s->joystick_processor);
     }
 
     sc_server_destroy(&s->server);

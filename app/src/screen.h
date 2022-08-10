@@ -71,6 +71,7 @@ struct sc_screen {
 struct sc_screen_params {
     struct sc_controller *controller;
     struct sc_file_pusher *fp;
+    struct sc_joystick_processor *jsp;
     struct sc_key_processor *kp;
     struct sc_mouse_processor *mp;
 

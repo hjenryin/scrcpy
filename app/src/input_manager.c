@@ -58,6 +58,7 @@ sc_input_manager_init(struct sc_input_manager *im,
     im->controller = params->controller;
     im->fp = params->fp;
     im->screen = params->screen;
+    im->jsp = params->jsp;
     im->kp = params->kp;
     im->mp = params->mp;
 
@@ -679,19 +680,31 @@ sc_input_manager_process_mouse_button(struct sc_input_manager *im,
     uint32_t sdl_buttons_state = SDL_GetMouseState(NULL, NULL);
 
     struct sc_mouse_click_event evt = {
-        .position = {
-            .screen_size = im->screen->frame_size,
-            .point = sc_screen_convert_window_to_frame_coords(im->screen,
-                                                              event->x,
-                                                              event->y),
-        },
+        .position =
+            {
+                .screen_size = im->screen->frame_size,
+                .point = sc_screen_convert_window_to_frame_coords(
+                    im->screen, event->x, event->y),
+            },
         .action = sc_action_from_sdl_mousebutton_type(event->type),
         .button = sc_mouse_button_from_sdl(event->button),
-        .buttons_state =
-            sc_mouse_buttons_state_from_sdl(sdl_buttons_state,
-                                            im->forward_all_clicks),
+        .buttons_state = sc_mouse_buttons_state_from_sdl(
+            sdl_buttons_state, im->forward_all_clicks),
     };
-
+    LOGI("Mouse: Testing whether set_mode.");
+    if (im->jsp->set_mode) {
+        struct js_button *button = im->jsp->button_to_set;
+        if (button) {
+            button->enable = true;
+            LOGI("Mouse: Mapping Enabled");
+            button->buttons_state = evt.buttons_state;
+            button->mapping = evt.position.point;
+            button->mouse = evt.button;
+        } else {
+            LOGI("Mouse: Button not prepared.");
+        }
+        return;
+    }
     assert(im->mp->ops->process_mouse_click);
     im->mp->ops->process_mouse_click(im->mp, &evt);
 
@@ -784,6 +797,40 @@ sc_input_manager_process_file(struct sc_input_manager *im,
     }
 }
 
+static void
+sc_input_manager_process_joy(struct sc_input_manager *im, enum jtype type,
+                             const Uint8 which, bool state) {
+    sc_joystick_key_simulation(im, type, which, state);
+    return;
+}
+
+static bool jaxis_state[MAX_POSSIBLE_JOYSTICK_AXES] = {0};
+
+static void
+sc_input_manager_process_jaxis(struct sc_input_manager *im, const Uint8 axis,
+                               const Sint16 value) {
+    bool new_state = (value > 5) || (value < -5);  // Avoid error.
+    if (new_state != jaxis_state[axis]) {
+        jaxis_state[axis] = new_state;
+        sc_input_manager_process_joy(im, jaxis, axis, new_state);
+    }
+    return;
+}
+
+static bool jhat_state[MAX_POSSIBLE_JOYSTICK_HATS_BUTTONS] = {0};
+
+static void
+sc_input_manager_process_jhat(struct sc_input_manager *im, Uint8 value) {
+    for (int i = 0; i < 4; i++) {
+        bool new_state = (bool) value & 1;
+        if (new_state != jhat_state[i]) {
+            sc_input_manager_process_joy(im, jhat, i, new_state);
+            jhat_state[i] = new_state;
+        }
+        value = value >> 1;
+    }
+}
+
 void
 sc_input_manager_handle_event(struct sc_input_manager *im, SDL_Event *event) {
     bool control = im->controller;
@@ -831,6 +878,38 @@ sc_input_manager_handle_event(struct sc_input_manager *im, SDL_Event *event) {
                 break;
             }
             sc_input_manager_process_file(im, &event->drop);
+            break;
         }
+        case SDL_JOYAXISMOTION:
+            if (!control) {
+                break;
+            }
+            {
+                SDL_JoyAxisEvent *je = &event->jaxis;
+                sc_input_manager_process_jaxis(im, je->axis, je->value);
+            }
+
+            break;
+        case SDL_JOYHATMOTION:
+            if (!control) {
+                break;
+            }
+            {
+                SDL_JoyHatEvent *je = &event->jhat;
+                sc_input_manager_process_jhat(im, je->value);
+            }
+
+            break;
+        case SDL_JOYBUTTONUP:
+        case SDL_JOYBUTTONDOWN:
+            if (!control) {
+                break;
+            }
+            {
+                SDL_JoyButtonEvent *je = &event->jbutton;
+                sc_input_manager_process_joy(im, jbutton, je->button,
+                                             je->state);
+            }
+            break;
     }
 }

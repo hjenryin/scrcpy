@@ -15,16 +15,18 @@ const struct scrcpy_options scrcpy_options_default = {
     .log_level = SC_LOG_LEVEL_INFO,
     .record_format = SC_RECORD_FORMAT_AUTO,
     .keyboard_input_mode = SC_KEYBOARD_INPUT_MODE_INJECT,
-    .port_range = {
-        .first = DEFAULT_LOCAL_PORT_RANGE_FIRST,
-        .last = DEFAULT_LOCAL_PORT_RANGE_LAST,
-    },
+    .port_range =
+        {
+            .first = DEFAULT_LOCAL_PORT_RANGE_FIRST,
+            .last = DEFAULT_LOCAL_PORT_RANGE_LAST,
+        },
     .tunnel_host = 0,
     .tunnel_port = 0,
-    .shortcut_mods = {
-        .data = {SC_SHORTCUT_MOD_LALT, SC_SHORTCUT_MOD_LSUPER},
-        .count = 2,
-    },
+    .shortcut_mods =
+        {
+            .data = {SC_SHORTCUT_MOD_LALT, SC_SHORTCUT_MOD_LSUPER},
+            .count = 2,
+        },
     .max_size = 0,
     .bit_rate = DEFAULT_BIT_RATE,
     .max_fps = 0,
@@ -65,4 +67,5 @@ const struct scrcpy_options scrcpy_options_default = {
     .cleanup = true,
     .start_fps_counter = false,
     .power_on = true,
+    .joystick_mapping = true,
 };

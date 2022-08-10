@@ -13,6 +13,7 @@ src = [
     'src/demuxer.c',
     'src/device_msg.c',
     'src/icon.c',
+    'src/joystick.c',
     'src/file_pusher.c',
     'src/fps_counter.c',
     'src/frame_buffer.c',

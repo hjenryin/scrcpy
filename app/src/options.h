@@ -140,6 +140,7 @@ struct scrcpy_options {
     bool cleanup;
     bool start_fps_counter;
     bool power_on;
+    bool joystick_mapping;
 };
 
 extern const struct scrcpy_options scrcpy_options_default;

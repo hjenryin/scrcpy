@@ -523,6 +523,7 @@ sc_screen_init(struct sc_screen *screen,
         .controller = params->controller,
         .fp = params->fp,
         .screen = screen,
+        .jsp = params->jsp,
         .kp = params->kp,
         .mp = params->mp,
         .forward_all_clicks = params->forward_all_clicks,
@@ -918,6 +919,17 @@ sc_screen_handle_event(struct sc_screen *screen, SDL_Event *event) {
                 return;
             }
             break;
+        case SDL_JOYAXISMOTION:
+        case SDL_JOYHATMOTION:
+        case SDL_JOYBUTTONUP:
+        case SDL_JOYBUTTONDOWN:
+            if (relative_mode) {
+                return;
+            }
+            break;
+
+        case SDL_JOYDEVICEREMOVED:
+            LOGW("Joystick Removed.");
     }
 
     sc_input_manager_handle_event(&screen->im, event);

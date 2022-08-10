@@ -1,0 +1,14 @@
+AllowShortBlocksOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: Empty
+BasedOnStyle: Google
+Language: Cpp
+SortIncludes: false
+UseTab: Never
+TabWidth: 4
+IndentWidth: 4
+AlwaysBreakAfterReturnType: None
+PenaltyReturnTypeOnItsOwnLine: 0
+ColumnLimit: 80
+IndentCaseLabels: true
+SpaceAfterCStyleCast: true
+
